@@ -15,10 +15,51 @@
 
 #include "hash/hash_table.h"
 
+const int BUCKET_SIZE = 3;
+
 namespace cmudb {
 
 template <typename K, typename V>
 class ExtendibleHash : public HashTable<K, V> {
+  class Bucket {
+  private:
+    int id;
+    int depth;
+    bool overflow;
+    V* value;
+  public:
+    Bucket(int id): id(id), depth(1), size(3), overflow(false) {
+      value = (V*)malloc(size);
+    }
+    int GetDepth() {
+      return depth;
+    }
+    int GetID() {
+      return id;
+    }
+    V* GetValue() {
+      return value;
+    }
+    void IncrSize() {
+      size++;
+    }
+    void UpdateValue(const V &value) {
+      int i = 0;
+      if (GetSize() == 0) {
+        first = Node(value);
+      }
+      else {
+        int depth = GetDepth();
+        Node node = first;
+        while (i < depth) {
+          if (!node.isFull()) {
+
+          }
+        }
+      }
+      IncrSize();
+    }
+  };
 public:
   // constructor
   ExtendibleHash(size_t size);
@@ -35,63 +76,8 @@ public:
 
 private:
   // add your own member variables here
-  class Bucket {
-  private:
-    int id;
-    int depth;
-    int size;
-    class Node {
-    private:
-      V value;
-      Node next;
-      bool isFull;
-    public:
-      Node(): isFull(FALSE) {}
-      Node(const V &value): value(value), isFull(TRUE) {}
-      V GetValue() {
-        return value;
-      }
-      Node GetNext() {
-        return next;
-      }
-      bool isFull() {
-        return isFull;
-      }
-    };
-    Node first;
-  public:
-    Bucket(int id, int depth): id(id), depth(depth), size(0) {}
-    int GetDepth() {
-      return depth;
-    }
-    int GetID() {
-      return id;
-    }
-    V GetValue() {
-      return value;
-    }
-    int GetSize() {
-      return size;
-    }
-    void IncrSize() {
-      size++;
-    }
-    void UpdateValue(const V &value) {
-      int i = 0;
-      if (GetSize() == 0) {
-        first = Node(value);
-      }
-      else {
-        int depth = GetDepth();
-        Node node = first;
-        while (i < depth) {
-          if (!node.isFull()) {
-            
-          }
-        }
-      }
-      IncrSize();
-    }
-  };
+  int size;
+  int globalDepth;
+  int number;
 };
 } // namespace cmudb
