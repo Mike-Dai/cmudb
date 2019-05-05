@@ -15,49 +15,18 @@
 
 #include "hash/hash_table.h"
 
-const int BUCKET_SIZE = 3;
-
 namespace cmudb {
 
 template <typename K, typename V>
 class ExtendibleHash : public HashTable<K, V> {
   class Bucket {
-  private:
+  public:
     int id;
     int depth;
+    int size;
     bool overflow;
-    V* value;
-  public:
-    Bucket(int id): id(id), depth(1), size(3), overflow(false) {
-      value = (V*)malloc(size);
-    }
-    int GetDepth() {
-      return depth;
-    }
-    int GetID() {
-      return id;
-    }
-    V* GetValue() {
-      return value;
-    }
-    void IncrSize() {
-      size++;
-    }
-    void UpdateValue(const V &value) {
-      int i = 0;
-      if (GetSize() == 0) {
-        first = Node(value);
-      }
-      else {
-        int depth = GetDepth();
-        Node node = first;
-        while (i < depth) {
-          if (!node.isFull()) {
-
-          }
-        }
-      }
-      IncrSize();
+    std::map<K, V> items;
+    Bucket(int id, int depth): id(id), depth(depth), overflow(false) {
     }
   };
 public:
@@ -76,8 +45,10 @@ public:
 
 private:
   // add your own member variables here
-  int size;
-  int globalDepth;
-  int number;
+  std::unique_ptr<Bucket> split(std::shared_ptr<Bucket> &);
+  std::vector<std::shared_ptr<Bucket>> buckets;
+  int bucket_size;
+  int global_depth;
+  int bucket_number; //used bucket
 };
 } // namespace cmudb

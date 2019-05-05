@@ -21,7 +21,7 @@ ExtendibleHash<K, V>::ExtendibleHash(size_t size) {
  */
 template <typename K, typename V>
 size_t ExtendibleHash<K, V>::HashKey(const K &key) {
-  return std::hash(key);
+  return std::hash<K>()(key);
 }
 
 /*
@@ -30,7 +30,7 @@ size_t ExtendibleHash<K, V>::HashKey(const K &key) {
  */
 template <typename K, typename V>
 int ExtendibleHash<K, V>::GetGlobalDepth() const {
-  return globalDepth;
+  return global_depth;
 }
 
 /*
@@ -39,7 +39,10 @@ int ExtendibleHash<K, V>::GetGlobalDepth() const {
  */
 template <typename K, typename V>
 int ExtendibleHash<K, V>::GetLocalDepth(int bucket_id) const {
-  return ;
+  if (buckets[bucket_id]) {
+  	return buckets[bucket_id]->depth;
+  }
+  return -1;
 }
 
 /*
@@ -47,7 +50,7 @@ int ExtendibleHash<K, V>::GetLocalDepth(int bucket_id) const {
  */
 template <typename K, typename V>
 int ExtendibleHash<K, V>::GetNumBuckets() const {
-  return number;
+  return bucket_number;
 }
 
 /*
@@ -55,6 +58,11 @@ int ExtendibleHash<K, V>::GetNumBuckets() const {
  */
 template <typename K, typename V>
 bool ExtendibleHash<K, V>::Find(const K &key, V &value) {
+	int id = HashKey(key) & (1 << global_depth - 1);
+	if (buckets[id]->items.find(key) != buckets[id]->items.end()) {
+		return buckets[id]->items.find(key);
+		return true;
+	}
   return false;
 }
 
