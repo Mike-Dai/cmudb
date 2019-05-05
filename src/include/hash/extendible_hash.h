@@ -35,5 +35,63 @@ public:
 
 private:
   // add your own member variables here
+  class Bucket {
+  private:
+    int id;
+    int depth;
+    int size;
+    class Node {
+    private:
+      V value;
+      Node next;
+      bool isFull;
+    public:
+      Node(): isFull(FALSE) {}
+      Node(const V &value): value(value), isFull(TRUE) {}
+      V GetValue() {
+        return value;
+      }
+      Node GetNext() {
+        return next;
+      }
+      bool isFull() {
+        return isFull;
+      }
+    };
+    Node first;
+  public:
+    Bucket(int id, int depth): id(id), depth(depth), size(0) {}
+    int GetDepth() {
+      return depth;
+    }
+    int GetID() {
+      return id;
+    }
+    V GetValue() {
+      return value;
+    }
+    int GetSize() {
+      return size;
+    }
+    void IncrSize() {
+      size++;
+    }
+    void UpdateValue(const V &value) {
+      int i = 0;
+      if (GetSize() == 0) {
+        first = Node(value);
+      }
+      else {
+        int depth = GetDepth();
+        Node node = first;
+        while (i < depth) {
+          if (!node.isFull()) {
+            
+          }
+        }
+      }
+      IncrSize();
+    }
+  };
 };
 } // namespace cmudb
