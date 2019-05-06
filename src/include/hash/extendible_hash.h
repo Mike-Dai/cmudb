@@ -12,6 +12,8 @@
 #include <cstdlib>
 #include <vector>
 #include <string>
+#include <map>
+#include <memory>
 
 #include "hash/hash_table.h"
 
