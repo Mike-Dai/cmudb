@@ -27,6 +27,8 @@ buffer/replacer.h
 ../src/include/buffer/buffer/replacer.h
 hash/extendible_hash.h
 ../src/include/buffer/hash/extendible_hash.h
+deque
+-
 
 ../src/include/buffer/replacer.h
 cstdlib
@@ -174,6 +176,8 @@ string
 map
 -
 memory
+-
+mutex
 -
 hash/hash_table.h
 ../src/include/hash/hash/hash_table.h
@@ -473,6 +477,8 @@ buffer/lru_replacer.h
 /home/michael/cmudb/src/buffer/buffer/lru_replacer.h
 page/page.h
 /home/michael/cmudb/src/buffer/page/page.h
+algorithm
+-
 
 /home/michael/cmudb/src/catalog/column.cpp
 sstream
@@ -529,6 +535,8 @@ hash/extendible_hash.h
 /home/michael/cmudb/src/hash/hash/extendible_hash.h
 page/page.h
 /home/michael/cmudb/src/hash/page/page.h
+common/logger.h
+/home/michael/cmudb/src/hash/common/logger.h
 vector
 -
 memory

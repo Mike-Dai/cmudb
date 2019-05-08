@@ -14,6 +14,7 @@
 #include <string>
 #include <map>
 #include <memory>
+#include <mutex>
 
 #include "hash/hash_table.h"
 
@@ -47,10 +48,11 @@ private:
   // add your own member variables here
   mutable std::mutex mutex_;
   std::unique_ptr<Bucket> split(std::shared_ptr<Bucket> &);
+  void dump(const K &key);
   std::vector<std::shared_ptr<Bucket>> buckets;
   size_t bucket_size;
   int depth;
-  size_t pair_count;  //??????????
+  size_t pair_cnt;  //??????????
   int bucket_number; //used bucket
 };
 } // namespace cmudb

@@ -12,6 +12,8 @@
 #include "buffer/replacer.h"
 #include "hash/extendible_hash.h"
 
+#include <deque>
+
 namespace cmudb {
 
 template <typename T> class LRUReplacer : public Replacer<T> {
@@ -31,6 +33,7 @@ public:
 
 private:
   // add your member variables here
+	std::deque<T> items;
 };
 
 } // namespace cmudb

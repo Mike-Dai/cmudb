@@ -2,6 +2,7 @@
 
 #include "hash/extendible_hash.h"
 #include "page/page.h"
+#include "common/logger.h"
 #include <vector>
 #include <memory>
 
@@ -33,7 +34,7 @@ size_t ExtendibleHash<K, V>::HashKey(const K &key) {
  */
 template <typename K, typename V>
 int ExtendibleHash<K, V>::GetGlobalDepth() const {
-	std::lock_guard<std:mutex> lock(mutex_);
+	std::lock_guard<std::mutex> lock(mutex_);
   	return depth;
 }
 
@@ -43,7 +44,7 @@ int ExtendibleHash<K, V>::GetGlobalDepth() const {
  */
 template <typename K, typename V>
 int ExtendibleHash<K, V>::GetLocalDepth(int bucket_id) const {
-  	std::lock_guard<std:mutex> lock(mutex_);
+  	std::lock_guard<std::mutex> lock(mutex_);
   	if (buckets[bucket_id]) {
   		return buckets[bucket_id]->depth;
   	}
@@ -55,7 +56,7 @@ int ExtendibleHash<K, V>::GetLocalDepth(int bucket_id) const {
  */
 template <typename K, typename V>
 int ExtendibleHash<K, V>::GetNumBuckets() const {
-	std::lock_guard<std:mutex> lock(mutex_);
+	std::lock_guard<std::mutex> lock(mutex_);
   	return bucket_number;
 }
 
@@ -64,7 +65,7 @@ int ExtendibleHash<K, V>::GetNumBuckets() const {
  */
 template <typename K, typename V>
 bool ExtendibleHash<K, V>::Find(const K &key, V &value) {
-	std::lock_guard<std:mutex> lock(mutex_);
+	std::lock_guard<std::mutex> lock(mutex_);
 	int id = HashKey(key) & ((1 << depth) - 1);
 	if (buckets[id]->items.find(key) != buckets[id]->items.end()) {
 		value = buckets[id]->items[key];
@@ -80,7 +81,7 @@ bool ExtendibleHash<K, V>::Find(const K &key, V &value) {
 template <typename K, typename V>
 bool ExtendibleHash<K, V>::Remove(const K &key) {
 	size_t cnt = 0;
-	std::lock_guard<std:mutex> lock(mutex_);
+	std::lock_guard<std::mutex> lock(mutex_);
 	int id = HashKey(key) & ((1 << depth) - 1);
 	if (buckets[id]->items.find(key) != buckets[id]->items.end()) {
 		cnt += buckets[id]->items.erase(key);
@@ -122,7 +123,7 @@ ExtendibleHash<K, V>::split(std::shared_ptr<Bucket> &b) {
  */
 template <typename K, typename V>
 void ExtendibleHash<K, V>::Insert(const K &key, const V &value) {
-	std::lock_guard<std:mutex> lock(mutex_);
+	std::lock_guard<std::mutex> lock(mutex_);
 	size_t id = HashKey(key) & ((1 << depth) - 1);
 	if (buckets[id] == nullptr) {
 		buckets[id] = std::make_shared<Bucket>(id, depth);
@@ -188,7 +189,29 @@ void ExtendibleHash<K, V>::Insert(const K &key, const V &value) {
 			}
 		}
 	}
+
+	//dump(key);
 }
+
+/*
+template <typename K, typename V> void ExtendibleHash<K, V>::dump(const K &key) {
+  LOG_DEBUG("---------------------------------------------------------------");
+  LOG_DEBUG("Global depth: %d, key: %d (%#x)", depth, key, key);
+  int i = 0;
+  for (auto b: buckets) {
+    if (b != nullptr) {
+      LOG_DEBUG("bucket: %d (%zu) -> %p, local depth: %d", i, b->id, b.get(), b->depth);
+      for (auto item: b->items) {
+        LOG_DEBUG("key: %#x, hash: %#zx", item.first, HashKey(item.first) & ((1 << b->depth) - 1));
+      }
+      LOG_DEBUG("\n");
+    } else {
+      LOG_DEBUG("bucket: %d -> nullptr ", i);
+    }
+    i++;
+  }
+}
+*/
 
 template class ExtendibleHash<page_id_t, Page *>;
 template class ExtendibleHash<Page *, std::list<Page *>::iterator>;
