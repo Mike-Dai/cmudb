@@ -21,15 +21,13 @@ namespace cmudb {
 
 template <typename K, typename V>
 class ExtendibleHash : public HashTable<K, V> {
-  class Bucket {
-  public:
-    size_t id;
-    int depth;
-    int size;
-    bool overflow;
+  struct Bucket {
+    Bucket() = default;
+    explicit Bucket(int id, int depth): id(id), depth(depth) {}
+    size_t id = 0;
+    int depth = 0;
+    bool overflow = false;
     std::map<K, V> items;
-    Bucket(int id, int depth): id(id), depth(depth), overflow(false) {
-    }
   };
 public:
   // constructor
@@ -47,10 +45,12 @@ public:
 
 private:
   // add your own member variables here
+  mutable std::mutex mutex_;
   std::unique_ptr<Bucket> split(std::shared_ptr<Bucket> &);
   std::vector<std::shared_ptr<Bucket>> buckets;
   size_t bucket_size;
   int depth;
+  size_t pair_count;  //??????????
   int bucket_number; //used bucket
 };
 } // namespace cmudb

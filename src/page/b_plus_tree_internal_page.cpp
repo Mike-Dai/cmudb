@@ -26,8 +26,9 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Init(page_id_t page_id,
 INDEX_TEMPLATE_ARGUMENTS
 KeyType B_PLUS_TREE_INTERNAL_PAGE_TYPE::KeyAt(int index) const {
   // replace with your own code
-  KeyType key;
-  return key;
+  //KeyType key;
+  //return key;
+  return array[index].first;
 }
 
 INDEX_TEMPLATE_ARGUMENTS
