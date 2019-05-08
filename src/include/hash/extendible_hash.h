@@ -23,7 +23,7 @@ template <typename K, typename V>
 class ExtendibleHash : public HashTable<K, V> {
   class Bucket {
   public:
-    int id;
+    size_t id;
     int depth;
     int size;
     bool overflow;
@@ -49,8 +49,8 @@ private:
   // add your own member variables here
   std::unique_ptr<Bucket> split(std::shared_ptr<Bucket> &);
   std::vector<std::shared_ptr<Bucket>> buckets;
-  int bucket_size;
-  int global_depth;
+  size_t bucket_size;
+  int depth;
   int bucket_number; //used bucket
 };
 } // namespace cmudb

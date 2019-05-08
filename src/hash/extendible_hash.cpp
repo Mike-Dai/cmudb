@@ -13,7 +13,7 @@ namespace cmudb {
  */
 template <typename K, typename V>
 ExtendibleHash<K, V>::ExtendibleHash(size_t size): 
-bucket_size(size), global_depth(0), bucket_number(0) {
+bucket_size(size), depth(0), bucket_number(0) {
 	buckets.emplace_back(Bucket(0, 0));
 	bucket_number = 1;
 }
@@ -32,7 +32,7 @@ size_t ExtendibleHash<K, V>::HashKey(const K &key) {
  */
 template <typename K, typename V>
 int ExtendibleHash<K, V>::GetGlobalDepth() const {
-  return global_depth;
+  return depth;
 }
 
 /*
@@ -60,7 +60,7 @@ int ExtendibleHash<K, V>::GetNumBuckets() const {
  */
 template <typename K, typename V>
 bool ExtendibleHash<K, V>::Find(const K &key, V &value) {
-	int id = HashKey(key) & ((1 << global_depth) - 1);
+	int id = HashKey(key) & ((1 << depth) - 1);
 	if (buckets[id]->items.find(key) != buckets[id]->items.end()) {
 		value = buckets[id]->items[key];
 		return true;
@@ -74,7 +74,7 @@ bool ExtendibleHash<K, V>::Find(const K &key, V &value) {
  */
 template <typename K, typename V>
 bool ExtendibleHash<K, V>::Remove(const K &key) {
-	int id = HashKey(key) & ((1 << global_depth) - 1);
+	int id = HashKey(key) & ((1 << depth) - 1);
 	if (buckets[id]->items.find(key) != buckets[id]->items.end()) {
 		buckets[id]->items.erase(key);
 		return true;
@@ -117,9 +117,9 @@ ExtendibleHash<K, V>::split(std::shared_ptr<Bucket> &b) {
  */
 template <typename K, typename V>
 void ExtendibleHash<K, V>::Insert(const K &key, const V &value) {
-	int id = HashKey(key) & ((1 << global_depth) - 1);
+	size_t id = HashKey(key) & ((1 << depth) - 1);
 	if (buckets[id] == nullptr) {
-		buckets[id] = std::make_shared<Bucket>(bucket_id, depth);
+		buckets[id] = std::make_shared<Bucket>(id, depth);
 		++bucket_number;
 	}
 	auto bucket = buckets[id];
@@ -153,15 +153,29 @@ void ExtendibleHash<K, V>::Insert(const K &key, const V &value) {
 						}
 						else {
 							auto step = 1 << buckets[i]->depth;
+							for (size_t j = i + step; j < buckets.size(); j += step) {
+								buckets[j] = buckets[i];
+							}
 						}
 					}
 				}
 			}
-		}
-		else {   //bucket overflow
-			bucket->depth++;
-			buckets.emplace_back(new Bucket(id, bucket->depth));
+			else {
+				for (size_t i = old_id; i < buckets.size(); i += (1 << old_depth)) {
+					buckets[i].reset();
+				}
 
+				buckets[bucket->id] = bucket;
+				buckets[new_bucket->id] = new_bucket;
+
+				auto step = 1 << bucket->depth;
+				for (size_t i = bucket->id + step; i < buckets.size(); i += step) {
+					buckets[i] = bucket;
+				}
+				for (size_t i = new_bucket->id + step; i < buckets.size(); i += step) {
+					buckets[i] = new_bucket;
+				}
+			}
 		}
 	}
 }
