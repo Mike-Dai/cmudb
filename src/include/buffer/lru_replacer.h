@@ -12,11 +12,18 @@
 #include "buffer/replacer.h"
 #include "hash/extendible_hash.h"
 
-#include <deque>
+#include <unordered_map>
 
 namespace cmudb {
 
 template <typename T> class LRUReplacer : public Replacer<T> {
+struct Node {
+	Node() = default;
+	Node(T value, Node* pre = nullptr): value(value), pre(pre) {}
+	T value;
+	Node* pre = nullptr;
+	Node* next = nullptr;
+};
 public:
   // do not change public interface
   LRUReplacer();
@@ -33,7 +40,9 @@ public:
 
 private:
   // add your member variables here
-	std::deque<T> items;
+	std::unordered_map<T, Node> items;
+	Node *head;
+	Node *tail;
 };
 
 } // namespace cmudb

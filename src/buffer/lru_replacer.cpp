@@ -8,7 +8,10 @@
 
 namespace cmudb {
 
-template <typename T> LRUReplacer<T>::LRUReplacer() {}
+template <typename T> LRUReplacer<T>::LRUReplacer() {
+	head = new Node();
+	tail = head;
+}
 
 template <typename T> LRUReplacer<T>::~LRUReplacer() {}
 
@@ -16,12 +19,24 @@ template <typename T> LRUReplacer<T>::~LRUReplacer() {}
  * Insert value into LRU
  */
 template <typename T> void LRUReplacer<T>::Insert(const T &value) {
-	if (std::find(items.begin(), items.end(), value) == items.end()) {
-		items.push_back(value);
+	auto it = items.find(value);
+	if (it == items.end()) {
+		Node node = Node(value);
+		tail->next = node;
+		tail = tail->next;
+		items.emplace(value, tail);
 	}
 	else {
-		items.erase(std::remove(items.begin(), items.end(), value), items.end());
-		items.push_back(value);
+		if (it.second != tail) {
+			Node *pre = it->second->pre; //????????
+			Node *cur = pre->next;
+			pre->next = std::move(cur->next);
+			pre->next->pre = pre;
+
+			cur->pre = tail;
+			tail->next = std::move(cur);
+			tail = tail->next;
+		}
 	}
 }
 
@@ -30,8 +45,8 @@ template <typename T> void LRUReplacer<T>::Insert(const T &value) {
  */
 template <typename T> bool LRUReplacer<T>::Victim(T &value) {
   if (!items.empty()) {
-  	value = items.front();
-  	items.pop_front();
+  	value = head->value;
+  	items.erase(value);
   	return true;
   }
   else {
@@ -45,11 +60,11 @@ template <typename T> bool LRUReplacer<T>::Victim(T &value) {
  */
 template <typename T> bool LRUReplacer<T>::Erase(const T &value) {
   size_t old_size = items.size();
-  items.erase(std::remove(items.begin(), items.end(), value), items.end());
+  items.erase(value);
   return items.size() != old_size;
 }
 
-template <typename T> size_t LRUReplacer<T>::Size() { return items.size(); }
+template <typename T> size_t LRUReplacer<T>::Size() { return items.size() - 1; }
 
 template class LRUReplacer<Page *>;
 // test only
