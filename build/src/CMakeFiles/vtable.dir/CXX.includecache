@@ -27,7 +27,7 @@ buffer/replacer.h
 ../src/include/buffer/buffer/replacer.h
 hash/extendible_hash.h
 ../src/include/buffer/hash/extendible_hash.h
-deque
+unordered_map
 -
 
 ../src/include/buffer/replacer.h
