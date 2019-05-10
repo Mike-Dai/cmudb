@@ -13,6 +13,7 @@
 #include "hash/extendible_hash.h"
 
 #include <unordered_map>
+#include <mutex>
 
 namespace cmudb {
 
@@ -40,9 +41,10 @@ public:
 
 private:
   // add your member variables here
+	mutable std::mutex mutex_;
 	std::unordered_map<T, Node> items;
-	Node *head;
-	Node *tail;
+	Node *head_;
+	Node *tail_;
 };
 
 } // namespace cmudb

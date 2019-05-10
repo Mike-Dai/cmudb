@@ -9,8 +9,8 @@
 namespace cmudb {
 
 template <typename T> LRUReplacer<T>::LRUReplacer() {
-	head = new Node();
-	tail = head;
+	head_ = new Node();
+	tail_ = head_;
 }
 
 template <typename T> LRUReplacer<T>::~LRUReplacer() {}
@@ -19,39 +19,50 @@ template <typename T> LRUReplacer<T>::~LRUReplacer() {}
  * Insert value into LRU
  */
 template <typename T> void LRUReplacer<T>::Insert(const T &value) {
+	std::lock_guard<std::mutex> lock(mutex_);
+
 	auto it = items.find(value);
 	if (it == items.end()) {
-		Node node = Node(value);
-		tail->next = node;
-		tail = tail->next;
-		items.emplace(value, tail);
+		tail_->next = new Node(value, tail_);
+		tail_ = tail_->next;
+		items.emplace(value, tail_);
 	}
 	else {
-		if (it.second != tail) {
+		if (it->second != tail_) {
 			Node *pre = it->second->pre; //????????
 			Node *cur = pre->next;
 			pre->next = std::move(cur->next);
 			pre->next->pre = pre;
 
-			cur->pre = tail;
-			tail->next = std::move(cur);
-			tail = tail->next;
+			cur->pre = tail_;
+			tail_->next = std::move(cur);
+			tail_ = tail_->next;
 		}
 	}
 }
 
-/* If LRU is non-empty, pop the head member from LRU to argument "value", and
+/* If LRU is non-empty, pop the head_ member from LRU to argument "value", and
  * return true. If LRU is empty, return false
  */
 template <typename T> bool LRUReplacer<T>::Victim(T &value) {
-  if (!items.empty()) {
-  	value = head->value;
-  	items.erase(value);
-  	return true;
-  }
-  else {
-  	return false;
-  }
+  	std::lock_guard<std::mutex> lock(mutex_);
+
+  	if (items.empty()) {
+  		return false;
+  	}
+  
+	value = head_->next->value;
+	head_->next = head_->next->next;
+	if (head_->next != nullptr) {
+		head_->next->pre = head_;
+	}
+
+	items.erase(value);
+	if (items.size() == 0) {
+		tail_ = head_;
+	}
+	return true;
+
 }
 
 /*
@@ -59,9 +70,28 @@ template <typename T> bool LRUReplacer<T>::Victim(T &value) {
  * return false
  */
 template <typename T> bool LRUReplacer<T>::Erase(const T &value) {
-  size_t old_size = items.size();
-  items.erase(value);
-  return items.size() != old_size;
+  	std::lock_guard<std::mutex> lock(mutex_);
+
+  	auto it = items.find(value);
+  	if (it != items.end()) {
+  		if (it->second != tail_) {
+  			Node *pre = it->second->pre;
+  			Node *cur = pre->next;
+  			pre->next = std::move(cur->next);
+  			pre->next->pre = pre;
+  		}
+  		else {
+  			tail_ = tail_->pre;
+  			delete tail_->next;
+  		}
+
+  		items.erase(value);
+  		if (items.size() == 0) {
+  			tail_ = head_;
+  		}
+  		return true;
+  	}
+  	return false;
 }
 
 template <typename T> size_t LRUReplacer<T>::Size() { return items.size() - 1; }
