@@ -46,7 +46,38 @@ BufferPoolManager::~BufferPoolManager() {
  * 4. Update page metadata, read page content from disk file and return page
  * pointer
  */
-Page *BufferPoolManager::FetchPage(page_id_t page_id) { return nullptr; }
+Page *BufferPoolManager::FetchPage(page_id_t page_id) { 
+    Page *res = nullptr;
+    if (page_table_->Find(page_id, res)) {
+      ++res->pin_count_;
+      replacer_->Erase(res);
+      return res;
+    }
+    else {
+      if (!free_list_->empty()) {
+        res = free_list_->front();
+        free_list_->pop_front();
+      }
+      else {
+        if (!replacer_->Victim(res)) {
+          return nullptr;
+        }
+      }
+    }
+
+    if (res->is_dirty_) {
+      disk_maneger_->WritePage(res->page_id_, res->GetData());
+    }
+
+    page_table_->Remove(res->page_id_);
+    page_table_->Insert(page_id, res);
+
+    res->page_id_ = page_id;
+    res->pin_count_ = 1;
+    res->is_dirty_ = false;
+
+    disk_maneger_->ReadPage(res->page_id_, res->GetData());
+ }
 
 /*
  * Implementation of unpin page

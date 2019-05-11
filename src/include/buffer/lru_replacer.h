@@ -42,7 +42,7 @@ public:
 private:
   // add your member variables here
 	mutable std::mutex mutex_;
-	std::unordered_map<T, Node> items;
+	std::unordered_map<T, Node*> items;
 	Node *head_;
 	Node *tail_;
 };
