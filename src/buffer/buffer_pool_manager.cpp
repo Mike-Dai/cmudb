@@ -86,7 +86,7 @@ Page *BufferPoolManager::FetchPage(page_id_t page_id) {
  * dirty flag of this page
  */
 bool BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty) {
-  return false;
+  
 }
 
 /*
@@ -115,5 +115,36 @@ bool BufferPoolManager::DeletePage(page_id_t page_id) { return false; }
  * update new page's metadata, zero out memory and add corresponding entry
  * into page table. return nullptr if all the pages in pool are pinned
  */
-Page *BufferPoolManager::NewPage(page_id_t &page_id) { return nullptr; }
+Page *BufferPoolManager::NewPage(page_id_t &page_id) { 
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    Page *res = nullptr;
+    
+    if (!free_list_->empty()) {
+      res = free_list_->front();
+      free_list_->pop_front();
+      return res;
+    }
+
+    if (!replacer_->Victim(res)) {
+      return nullptr;
+    }
+
+    page_id = disk_maneger_->AllocatePage();
+
+    if (res->is_dirty_) {
+      disk_maneger_->WritePage(res->page_id_, res->GetData());
+    }
+
+    page_table_->Remove(res->page_id_);
+
+    page_table_->Insert(page_id, res);
+
+    res->pin_count_ = 1;
+    res->is_dirty_ = false;
+    res->page_id_ = page_id;
+    res->ResetMemory();
+
+    return res;
+ }
 } // namespace cmudb
