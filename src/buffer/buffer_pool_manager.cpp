@@ -147,7 +147,31 @@ bool BufferPoolManager::FlushPage(page_id_t page_id) {
  * call disk manager's DeallocatePage() method to delete from disk file. If
  * the page is found within page table, but pin_count != 0, return false
  */
-bool BufferPoolManager::DeletePage(page_id_t page_id) { return false; }
+bool BufferPoolManager::DeletePage(page_id_t page_id) { 
+    std::lock_guard<std::mutex> lock(latch_);
+
+    Page *res = nullptr;
+    if (!page_table_->Find(page_id, res)) {
+      return true;
+    }
+
+    if (res->pin_count_ != 0) {
+      return false;
+    }
+
+    res->page_id_ = INVALID_PAGE_ID;
+    res->is_dirty_ = false;
+
+    free_list_->push_back(res);
+
+    page_table_->Remove(page_id);
+
+    replacer_->Erase(res);
+      
+    disk_manager_->DeallocatePage(page_id);
+
+    return true;
+ }
 
 /**
  * User should call this method if needs to create a new page. This routine
@@ -179,6 +203,12 @@ Page *BufferPoolManager::NewPage(page_id_t &page_id) {
     }
 
     page_table_->Remove(res->page_id_);
+
+    /*
+    if (page_id < 0) {
+      page_id = 0;
+    }
+    */
 
     page_table_->Insert(page_id, res);
 
