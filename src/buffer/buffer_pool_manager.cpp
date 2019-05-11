@@ -47,7 +47,7 @@ BufferPoolManager::~BufferPoolManager() {
  * pointer
  */
 Page *BufferPoolManager::FetchPage(page_id_t page_id) { 
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(latch_);
 
     Page *res = nullptr;
     
@@ -69,7 +69,7 @@ Page *BufferPoolManager::FetchPage(page_id_t page_id) {
     }
 
     if (res->is_dirty_) {
-      disk_maneger_->WritePage(res->page_id_, res->GetData());
+      disk_manager_->WritePage(res->page_id_, res->GetData());
     }
 
     page_table_->Remove(res->page_id_);
@@ -79,7 +79,9 @@ Page *BufferPoolManager::FetchPage(page_id_t page_id) {
     res->pin_count_ = 1;
     res->is_dirty_ = false;
 
-    disk_maneger_->ReadPage(res->page_id_, res->GetData());
+    disk_manager_->ReadPage(res->page_id_, res->GetData());
+
+    return res;
  }
 
 /*
@@ -89,7 +91,7 @@ Page *BufferPoolManager::FetchPage(page_id_t page_id) {
  * dirty flag of this page
  */
 bool BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty) {
-  std::lock_guard<std::mutex> lock(mutex_);
+  std::lock_guard<std::mutex> lock(latch_);
   
   Page *res = nullptr;
   
@@ -120,7 +122,22 @@ bool BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty) {
  * if page is not found in page table, return false
  * NOTE: make sure page_id != INVALID_PAGE_ID
  */
-bool BufferPoolManager::FlushPage(page_id_t page_id) { return false; }
+bool BufferPoolManager::FlushPage(page_id_t page_id) { 
+    std::lock_guard<std::mutex> lock(latch_);
+
+    if (page_id == INVALID_PAGE_ID) {
+      return false;
+    }
+
+    Page *res = nullptr;
+
+    if (page_table_->Find(page_id, res)) {
+      disk_manager_->WritePage(res->page_id_, res->GetData());
+      return true;
+    }
+
+    return false;
+ }
 
 /**
  * User should call this method for deleting a page. This routine will call
@@ -141,7 +158,7 @@ bool BufferPoolManager::DeletePage(page_id_t page_id) { return false; }
  * into page table. return nullptr if all the pages in pool are pinned
  */
 Page *BufferPoolManager::NewPage(page_id_t &page_id) { 
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(latch_);
 
     Page *res = nullptr;
     
@@ -155,10 +172,10 @@ Page *BufferPoolManager::NewPage(page_id_t &page_id) {
       return nullptr;
     }
 
-    page_id = disk_maneger_->AllocatePage();
+    page_id = disk_manager_->AllocatePage();
 
     if (res->is_dirty_) {
-      disk_maneger_->WritePage(res->page_id_, res->GetData());
+      disk_manager_->WritePage(res->page_id_, res->GetData());
     }
 
     page_table_->Remove(res->page_id_);
