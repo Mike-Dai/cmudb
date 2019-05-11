@@ -47,7 +47,10 @@ BufferPoolManager::~BufferPoolManager() {
  * pointer
  */
 Page *BufferPoolManager::FetchPage(page_id_t page_id) { 
+    std::lock_guard<std::mutex> lock(mutex_);
+
     Page *res = nullptr;
+    
     if (page_table_->Find(page_id, res)) {
       ++res->pin_count_;
       replacer_->Erase(res);
@@ -86,7 +89,29 @@ Page *BufferPoolManager::FetchPage(page_id_t page_id) {
  * dirty flag of this page
  */
 bool BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty) {
+  std::lock_guard<std::mutex> lock(mutex_);
   
+  Page *res = nullptr;
+  
+  if (!page_table_->Find(page_id, res)) {
+    return false;
+  }
+
+  if (res->pin_count_ > 0) {
+    --res->pin_count_;
+    if (res->pin_count_ == 0) {
+      replacer_->Insert(res);
+    }
+  }
+  else {
+    return false;
+  }
+
+  if (is_dirty) {
+    res->is_dirty_ = true;
+  }
+
+  return true;
 }
 
 /*
