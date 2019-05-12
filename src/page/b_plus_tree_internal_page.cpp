@@ -76,7 +76,30 @@ INDEX_TEMPLATE_ARGUMENTS
 ValueType
 B_PLUS_TREE_INTERNAL_PAGE_TYPE::Lookup(const KeyType &key,
                                        const KeyComparator &comparator) const {
-  return INVALID_PAGE_ID;
+  int low = 1, high = GetSize() - 1, mid;
+  
+  if (comparator(key, array[low].first) < 0) {
+    return array[0].second;
+  }
+
+  if (comparator(key, array[high]) >= 0) {
+    return array[high].second;
+  }
+
+  while (low < high && low + 1 != high) {
+    mid = (low + high) / 2;
+    if (comparator(key, array[mid]) > 0) {
+      low = mid;
+    }
+    else if (comparator(key, array[mid]) < 0) {
+      high = mid;
+    }
+    else {
+      return array[mid].second;
+    }
+  }
+
+  return array[low].second;  //????????
 }
 
 /*****************************************************************************
