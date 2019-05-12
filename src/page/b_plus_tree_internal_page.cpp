@@ -150,11 +150,29 @@ int B_PLUS_TREE_INTERNAL_PAGE_TYPE::InsertNodeAfter(
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveHalfTo(
     BPlusTreeInternalPage *recipient,
-    BufferPoolManager *buffer_pool_manager) {}
+    BufferPoolManager *buffer_pool_manager) {
+  auto half = (GetSize() + 1) / 2;
+  recipient->CopyHalfFrom(array + GetSize() - half, half, buffer_pool_manager);
+  
+  for (auto index = GetSize() - half; index < GetSize(); ++index) {
+    auto *page = buffer_pool_manager->FetchPage(ValueAt(index));
+    if (page == nullptr) {
+      throw Exception(EXCEPTION_TYPE_INDEX,
+                      "All page are pinned while CopyLastFrom") //??????
+    }
+    auto child = reinterpret_cast<BPlusTreePage *>(page->GetData());
+    child->SetParentPageId(recipient->GetPageId());
+
+    buffer_pool_manager->UnpinPage(page->GetPageId(), true);
+  }
+  IncreaseSize(-1 * half);
+}
 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::CopyHalfFrom(
-    MappingType *items, int size, BufferPoolManager *buffer_pool_manager) {}
+    MappingType *items, int size, BufferPoolManager *buffer_pool_manager) {
+
+}
 
 /*****************************************************************************
  * REMOVE
