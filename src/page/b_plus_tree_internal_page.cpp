@@ -18,21 +18,28 @@ namespace cmudb {
  */
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Init(page_id_t page_id,
-                                          page_id_t parent_id) {}
+                                          page_id_t parent_id) {
+  SetPageType(IndexPageType::INTERNAL_PAGE);
+  SetPageId(page_id);
+  SetParentPageId(parent_id);
+  SetSize(1);
+  int size = (PAGE_SIZE - sizeof(BPlusTreeInternalPage)) /
+            (sizeof(KeyType) + sizeof(ValueType));
+  SetMaxSize(size);
+}
 /*
  * Helper method to get/set the key associated with input "index"(a.k.a
  * array offset)
  */
 INDEX_TEMPLATE_ARGUMENTS
 KeyType B_PLUS_TREE_INTERNAL_PAGE_TYPE::KeyAt(int index) const {
-  // replace with your own code
-  //KeyType key;
-  //return key;
   return array[index].first;
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) {}
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) {
+  array[index].first = key;
+}
 
 /*
  * Helper method to find and return array index(or offset), so that its value
@@ -40,7 +47,12 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) {}
  */
 INDEX_TEMPLATE_ARGUMENTS
 int B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueIndex(const ValueType &value) const {
-  return 0;
+  for (int i = 0; i < GetSize(); i++) {
+    if (array[i].second == value) {
+      return i;
+    }
+  }
+  return GetSize();
 }
 
 /*
@@ -48,7 +60,9 @@ int B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueIndex(const ValueType &value) const {
  * offset)
  */
 INDEX_TEMPLATE_ARGUMENTS
-ValueType B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const { return 0; }
+ValueType B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const { 
+    return array[index].second;
+ }
 
 /*****************************************************************************
  * LOOKUP
