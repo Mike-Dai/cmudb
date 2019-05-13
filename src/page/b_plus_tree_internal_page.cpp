@@ -214,11 +214,46 @@ ValueType B_PLUS_TREE_INTERNAL_PAGE_TYPE::RemoveAndReturnOnlyChild() {
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveAllTo(
     BPlusTreeInternalPage *recipient, int index_in_parent,
-    BufferPoolManager *buffer_pool_manager) {}
+    BufferPoolManager *buffer_pool_manager) {
+  auto *page = buffer_pool_manager->FetchPage(GetParentPageId());
+  if (page == nullptr) {
+    throw Exception(EXCEPTION_TYPE_INDEX,
+                    "All page are pinned while MoveAllTo");
+  }
+  auto *parent = reinterpret_cast<BPlusTreePage *>(page->GetData());
+  
+  SetKeyAt(0, parent->KeyAt(index_in_parent));
+  assert(parent->ValueAt(index_in_parent) == GetPageId());
+
+  buffer_pool_manager->UnpinPage(parent->GetPageId(), true);
+
+  recipient->CopyAllFrom(array, GetSize(), buffer_pool_manager);
+
+  for (auto i = 0; i < GetSize(); ++i) {
+    auto *page = buffer_pool_manager->FetchPage(ValueAt(i));
+    if (page == nullptr) {
+      throw Exception(EXCEPTION_TYPE_INDEX, 
+                      "All pages are pinned while CopyLastFrom");
+    }
+    auto *child = reinterpret_cast<BPlusTreePage *>(page->GetData());
+    child->SetParentPageId(recipient->GetPageId());
+    assert(child->GetParentPageId() == recipient->GetPageId());
+
+    buffer_pool_manager->UnpinPage(child->GetPageId(), true);
+  }
+  
+}
 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::CopyAllFrom(
-    MappingType *items, int size, BufferPoolManager *buffer_pool_manager) {}
+    MappingType *items, int size, BufferPoolManager *buffer_pool_manager) {
+  assert(size + GetSize() <= GetMaxSize());
+    int start = GetSize();
+    for (int i = 0; i < size; ++i) {
+      array[start + i] = *items++;
+    }
+    IncreaseSize(size);
+}
 
 /*****************************************************************************
  * REDISTRIBUTE
