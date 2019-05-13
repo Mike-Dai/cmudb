@@ -82,16 +82,16 @@ B_PLUS_TREE_INTERNAL_PAGE_TYPE::Lookup(const KeyType &key,
     return array[0].second;
   }
 
-  if (comparator(key, array[high]) >= 0) {
+  if (comparator(key, array[high].first) >= 0) {
     return array[high].second;
   }
 
   while (low < high && low + 1 != high) {
     mid = (low + high) / 2;
-    if (comparator(key, array[mid]) > 0) {
+    if (comparator(key, array[mid].first) > 0) {
       low = mid;
     }
-    else if (comparator(key, array[mid]) < 0) {
+    else if (comparator(key, array[mid].first) < 0) {
       high = mid;
     }
     else {
@@ -134,7 +134,7 @@ int B_PLUS_TREE_INTERNAL_PAGE_TYPE::InsertNodeAfter(
         array[j+1] = array[j];
       }
       array[i+1] = {new_key, new_value};
-      InceaseSize(1);
+      IncreaseSize(1);
       break;
     }
   }
@@ -158,7 +158,7 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveHalfTo(
     auto *page = buffer_pool_manager->FetchPage(ValueAt(index));
     if (page == nullptr) {
       throw Exception(EXCEPTION_TYPE_INDEX,
-                      "All page are pinned while CopyLastFrom") //??????
+                      "All page are pinned while CopyLastFrom"); //??????
     }
     auto child = reinterpret_cast<BPlusTreePage *>(page->GetData());
     child->SetParentPageId(recipient->GetPageId());
@@ -171,7 +171,11 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveHalfTo(
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::CopyHalfFrom(
     MappingType *items, int size, BufferPoolManager *buffer_pool_manager) {
-
+    assert(!IsLeafPage() && GetSize() == 1 && size > 0);
+    for (int i = 0; i < size; ++i) {
+      array[i] = *items++;
+    }
+    IncreaseSize(size - 1);
 }
 
 /*****************************************************************************
