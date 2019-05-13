@@ -265,7 +265,26 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::CopyAllFrom(
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveFirstToEndOf(
     BPlusTreeInternalPage *recipient,
-    BufferPoolManager *buffer_pool_manager) {}
+    BufferPoolManager *buffer_pool_manager) {
+  assert(GetSize() > 1);
+  MappingType pair = {KeyAt(1), ValueAt(0)};
+  page_id_t child_page_id = ValueAt(0);
+  SetValueAt(0, ValueAt(1));
+  Remove(1);
+
+  recipient->CopyLastFrom(pair, buffer_pool_manager);
+
+  auto *page = buffer_pool_manager->FetchPage(child_page_id);
+  if (page == nullptr) {
+      throw Exception(EXCEPTION_TYPE_INDEX, 
+                      "All pages are pinned while CopyLastFrom");
+    }
+  auto *child = reinterpret_cast<BPlusTreePage *>(page->GetData());
+  child->SetParentPageId(recipient->GetPageId());
+  assert(child->GetParentPageId() == recipient->GetPageId());
+  
+  buffer_pool_manager->UnpinPage(child->GetPageId(), true);
+}
 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::CopyLastFrom(
