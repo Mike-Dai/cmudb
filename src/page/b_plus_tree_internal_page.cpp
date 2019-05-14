@@ -64,6 +64,13 @@ ValueType B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const {
     return array[index].second;
  }
 
+ INDEX_TEMPLATE_ARGUMENTS
+ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::
+ SetValueAt(int index, const ValueType &value) {
+  assert(0 <= index && index < GetSize());
+  array[index].second = value;
+ }
+
 /*****************************************************************************
  * LOOKUP
  *****************************************************************************/
@@ -220,7 +227,7 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveAllTo(
     throw Exception(EXCEPTION_TYPE_INDEX,
                     "All page are pinned while MoveAllTo");
   }
-  auto *parent = reinterpret_cast<BPlusTreePage *>(page->GetData());
+  auto *parent = reinterpret_cast<BPlusTreeInternalPage *>(page->GetData());
   
   SetKeyAt(0, parent->KeyAt(index_in_parent));
   assert(parent->ValueAt(index_in_parent) == GetPageId());
@@ -296,7 +303,7 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::CopyLastFrom(
     throw Exception(EXCEPTION_TYPE_INDEX,
                     "All pages are pinned while CopyLastFrom");
   }
-  auto parent = reinterpret_cast<BPlusTreePage *>(page->GetData());
+  auto parent = reinterpret_cast<BPlusTreeInternalPage *>(page->GetData());
 
   auto index = parent->ValueIndex(GetPageId());
   auto key = parent->KeyAt(index + 1);
@@ -340,7 +347,23 @@ INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::CopyFirstFrom(
     const MappingType &pair, int parent_index,
     BufferPoolManager *buffer_pool_manager) {
-  
+  assert(GetSize() + 1 <= GetMaxSize());
+
+  auto *page = buffer_pool_manager->FetchPage(GetParentPageId());
+  if (page == nullptr) {
+    throw Exception(EXCEPTION_TYPE_INDEX,
+                    "All pages are pinned while CopyFirstFrom");
+  }
+  auto parent = reinterpret_cast<BPlusTreeInternalPage *>(page->GetData());
+
+  auto key = parent->KeyAt(parent_index);
+
+  parent->SetKeyAt(parent_index, pair.first);
+
+  InsertNodeAfter(array[0].second, key, array[0].second);
+  array[0].second = pair.second;
+
+  buffer_pool_manager->UnpinPage(parent->GetPageId(), true);
 }
 
 /*****************************************************************************
