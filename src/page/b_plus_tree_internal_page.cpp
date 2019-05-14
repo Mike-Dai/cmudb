@@ -267,9 +267,9 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveFirstToEndOf(
     BPlusTreeInternalPage *recipient,
     BufferPoolManager *buffer_pool_manager) {
   assert(GetSize() > 1);
-  MappingType pair = {KeyAt(1), ValueAt(0)};
+  MappingType pair = {KeyAt(1), ValueAt(0)};  //?????????
   page_id_t child_page_id = ValueAt(0);
-  SetValueAt(0, ValueAt(1));
+  SetValueAt(0, ValueAt(1));  //?????????
   Remove(1);
 
   recipient->CopyLastFrom(pair, buffer_pool_manager);
@@ -282,13 +282,32 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveFirstToEndOf(
   auto *child = reinterpret_cast<BPlusTreePage *>(page->GetData());
   child->SetParentPageId(recipient->GetPageId());
   assert(child->GetParentPageId() == recipient->GetPageId());
-  
+
   buffer_pool_manager->UnpinPage(child->GetPageId(), true);
 }
 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::CopyLastFrom(
-    const MappingType &pair, BufferPoolManager *buffer_pool_manager) {}
+    const MappingType &pair, BufferPoolManager *buffer_pool_manager) {
+  assert(GetSize() + 1 <= GetMaxSize());
+
+  auto *page = buffer_pool_manager->FetchPage(GetParentPageId());
+  if (page == nullptr) {
+    throw Exception(EXCEPTION_TYPE_INDEX,
+                    "All pages are pinned while CopyLastFrom");
+  }
+  auto *parent = reinterpret_cast<BPlusTreePage *>(page->GetData());
+
+  auto index = parent->ValueIndex(GetPageId());
+  auto key = parent->KeyAt(index + 1);
+
+  //?????????
+  array[GetSize()] = {key, pair.second};
+  IncreaseSize(1);
+  parent->SetKeyAt(index + 1, pair.first);
+
+  buffer_pool_manager->UnpinPage(parent->GetPageId(), true);
+}
 
 /*
  * Remove the last key & value pair from this page to head of "recipient"
@@ -297,7 +316,9 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::CopyLastFrom(
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveLastToFrontOf(
     BPlusTreeInternalPage *recipient, int parent_index,
-    BufferPoolManager *buffer_pool_manager) {}
+    BufferPoolManager *buffer_pool_manager) {
+  
+}
 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::CopyFirstFrom(
