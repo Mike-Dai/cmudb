@@ -235,7 +235,7 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveAllTo(
       throw Exception(EXCEPTION_TYPE_INDEX, 
                       "All pages are pinned while CopyLastFrom");
     }
-    auto *child = reinterpret_cast<BPlusTreePage *>(page->GetData());
+    auto child = reinterpret_cast<BPlusTreePage *>(page->GetData());
     child->SetParentPageId(recipient->GetPageId());
     assert(child->GetParentPageId() == recipient->GetPageId());
 
@@ -279,7 +279,7 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveFirstToEndOf(
       throw Exception(EXCEPTION_TYPE_INDEX, 
                       "All pages are pinned while CopyLastFrom");
     }
-  auto *child = reinterpret_cast<BPlusTreePage *>(page->GetData());
+  auto child = reinterpret_cast<BPlusTreePage *>(page->GetData());
   child->SetParentPageId(recipient->GetPageId());
   assert(child->GetParentPageId() == recipient->GetPageId());
 
@@ -296,7 +296,7 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::CopyLastFrom(
     throw Exception(EXCEPTION_TYPE_INDEX,
                     "All pages are pinned while CopyLastFrom");
   }
-  auto *parent = reinterpret_cast<BPlusTreePage *>(page->GetData());
+  auto parent = reinterpret_cast<BPlusTreePage *>(page->GetData());
 
   auto index = parent->ValueIndex(GetPageId());
   auto key = parent->KeyAt(index + 1);
@@ -317,13 +317,31 @@ INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveLastToFrontOf(
     BPlusTreeInternalPage *recipient, int parent_index,
     BufferPoolManager *buffer_pool_manager) {
-  
+  assert(GetSize() > 1);
+  IncreaseSize(-1);
+  MappingType pair = array[GetSize()];
+  page_id_t child_page_id = pair.second;
+
+  recipient->CopyFirstFrom(pair, parent_index, buffer_pool_manager);
+
+  auto *page = buffer_pool_manager->FetchPage(child_page_id);
+  if (page == nullptr) {
+      throw Exception(EXCEPTION_TYPE_INDEX, 
+                      "All pages are pinned while CopyFirstFrom");
+    }
+  auto *child = reinterpret_cast<BPlusTreePage *>(page->GetData());
+  child->SetParentPageId(recipient->GetPageId());
+  assert(child->GetParentPageId() == recipient->GetPageId());
+
+  buffer_pool_manager->UnpinPage(child->GetPageId(), true);
 }
 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::CopyFirstFrom(
     const MappingType &pair, int parent_index,
-    BufferPoolManager *buffer_pool_manager) {}
+    BufferPoolManager *buffer_pool_manager) {
+  
+}
 
 /*****************************************************************************
  * DEBUG
