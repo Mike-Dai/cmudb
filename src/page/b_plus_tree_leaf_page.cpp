@@ -89,7 +89,34 @@ INDEX_TEMPLATE_ARGUMENTS
 int B_PLUS_TREE_LEAF_PAGE_TYPE::Insert(const KeyType &key,
                                        const ValueType &value,
                                        const KeyComparator &comparator) {
-  return 0;
+  if (GetSize() == 0 || comparator(key, array[GetSize() - 1].first) > 0) {
+    array[GetSize()] = {key, value};
+  }
+  else if (comparator(key, array[0].first) < 0) {
+    memmove(array + 1, array, static_cast<size_t>(GetSize() * sizeof(MappingType)));
+    array[0] = {key, value};
+  }
+  else {
+    int low = 0, high = GetSize() - 1, mid;
+    while (low < high && low + 1 != high) {
+      mid = (low + high) / 2;
+      if (comparator(key, KeyAt(mid)) > 0) {
+        low = mid;
+      }
+      else if (comparator(key, KeyAt(mid)) < 0) {
+        high = mid;
+      }
+      else {
+        assert(0);  //???????
+      }
+    }
+    memmove(array + high + 1, array + high, 
+      static_cast<size_t>((GetSize() - high) * sizeof(MappingType)));
+    array[high] = {key, value};
+  }
+  IncreaseSize(1);
+  assert(GetSize() <= GetMaxSize());
+  return GetSize();
 }
 
 /*****************************************************************************
