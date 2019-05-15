@@ -599,6 +599,8 @@ common/rid.h
 /home/michael/cmudb/src/page/common/rid.h
 page/b_plus_tree_leaf_page.h
 /home/michael/cmudb/src/page/page/b_plus_tree_leaf_page.h
+page/b_plus_tree_internal_page.h
+/home/michael/cmudb/src/page/page/b_plus_tree_internal_page.h
 
 /home/michael/cmudb/src/page/b_plus_tree_page.cpp
 page/b_plus_tree_page.h

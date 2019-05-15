@@ -278,6 +278,7 @@ src/CMakeFiles/vtable.dir/page/b_plus_tree_leaf_page.cpp.o: ../src/include/hash/
 src/CMakeFiles/vtable.dir/page/b_plus_tree_leaf_page.cpp.o: ../src/include/index/generic_key.h
 src/CMakeFiles/vtable.dir/page/b_plus_tree_leaf_page.cpp.o: ../src/include/logging/log_manager.h
 src/CMakeFiles/vtable.dir/page/b_plus_tree_leaf_page.cpp.o: ../src/include/logging/log_record.h
+src/CMakeFiles/vtable.dir/page/b_plus_tree_leaf_page.cpp.o: ../src/include/page/b_plus_tree_internal_page.h
 src/CMakeFiles/vtable.dir/page/b_plus_tree_leaf_page.cpp.o: ../src/include/page/b_plus_tree_leaf_page.h
 src/CMakeFiles/vtable.dir/page/b_plus_tree_leaf_page.cpp.o: ../src/include/page/b_plus_tree_page.h
 src/CMakeFiles/vtable.dir/page/b_plus_tree_leaf_page.cpp.o: ../src/include/page/page.h

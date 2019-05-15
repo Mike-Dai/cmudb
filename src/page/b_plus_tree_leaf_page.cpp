@@ -7,6 +7,7 @@
 #include "common/exception.h"
 #include "common/rid.h"
 #include "page/b_plus_tree_leaf_page.h"
+#include "page/b_plus_tree_internal_page.h"
 
 namespace cmudb {
 
@@ -266,9 +267,10 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveFirstToEndOf(
       throw Exception(EXCEPTION_TYPE_INDEX, 
                       "All pages are pinned while CopyFirstToEndOf");
     }
-  auto parent = 
-    reinterpret_cast<BPlusTreeInternalPage<KeyType ,decltype(GetPageId()),
-                                          KeyComparator> *>(page->GetData());
+  auto parent =
+      reinterpret_cast<BPlusTreeInternalPage<KeyType, decltype(GetPageId()),
+                                             KeyComparator> *>(page->GetData());
+
   
   parent->SetKeyAt(parent->ValueIndex(GetPageId()), pair.first);
 
@@ -298,7 +300,26 @@ INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::CopyFirstFrom(
     const MappingType &item, int parentIndex,
     BufferPoolManager *buffer_pool_manager) {
+  assert(GetSize() + 1 < GetMaxSize());
+  memmove(array + 1, array, GetSize()*sizeof(MappingType));
+  IncreaseSize(1);
+  array[0] = item;
 
+  auto *page = buffer_pool_manager->FetchPage(GetParentPageId());
+  if (page == nullptr) {
+    throw Exception(EXCEPTION_TYPE_INDEX,
+                    "all page are pinned while CopyFirstFrom");
+  }
+  // get parent
+  auto parent =
+      reinterpret_cast<BPlusTreeInternalPage<KeyType, decltype(GetPageId()),
+                                             KeyComparator> *>(page->GetData());
+
+  // replace with moving key
+  parent->SetKeyAt(parentIndex, item.first);
+
+  // unpin when are done
+buffer_pool_manager->UnpinPage(GetParentPageId(), true);
 }
 
 /*****************************************************************************
