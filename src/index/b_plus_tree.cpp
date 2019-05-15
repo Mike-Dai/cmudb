@@ -83,7 +83,14 @@ bool BPLUSTREE_TYPE::GetValue(const KeyType &key,
 INDEX_TEMPLATE_ARGUMENTS
 bool BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value,
                             Transaction *transaction) {
-  return false;
+  if (IsEmpty()) {
+    StartNewTree(key, value);
+    UpdateRootPageId(1);
+    return InsertIntoLeaf(key, value, transaction);
+  }
+  else {
+    return InsertIntoLeaf(key, value, transaction);
+  }
 }
 /*
  * Insert constant key & value pair into an empty tree
@@ -92,7 +99,9 @@ bool BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value,
  * tree's root page id and insert entry directly into leaf page.
  */
 INDEX_TEMPLATE_ARGUMENTS
-void BPLUSTREE_TYPE::StartNewTree(const KeyType &key, const ValueType &value) {}
+void BPLUSTREE_TYPE::StartNewTree(const KeyType &key, const ValueType &value) {
+
+}
 
 /*
  * Insert constant key & value pair into leaf page
