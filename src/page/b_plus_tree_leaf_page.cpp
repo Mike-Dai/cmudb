@@ -155,6 +155,25 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::CopyHalfFrom(MappingType *items, int size) {
 INDEX_TEMPLATE_ARGUMENTS
 bool B_PLUS_TREE_LEAF_PAGE_TYPE::Lookup(const KeyType &key, ValueType &value,
                                         const KeyComparator &comparator) const {
+  if (GetSize() == 0 || comparator(key, KeyAt(0)) < 0 ||
+        comparator(key, KeyAt(GetSize() - 1)) > 0) {
+    return false;
+  }
+
+  int low = 0, high = GetSize() - 1, mid;
+  while (low < high && low + 1 != high) {
+    mid = (low + high) / 2;
+    if (comparator(key, KeyAt(mid)) > 0) {
+      low = mid + 1;
+    }
+    else if (comparator(key, KeyAt(mid)) < 0) {
+      high = mid - 1;
+    }
+    else {
+      value = ValueAt(mid);
+      return true;
+    }
+  }
   return false;
 }
 
