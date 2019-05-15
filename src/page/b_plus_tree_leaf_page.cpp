@@ -128,10 +128,21 @@ int B_PLUS_TREE_LEAF_PAGE_TYPE::Insert(const KeyType &key,
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveHalfTo(
     BPlusTreeLeafPage *recipient,
-    __attribute__((unused)) BufferPoolManager *buffer_pool_manager) {}
+    __attribute__((unused)) BufferPoolManager *buffer_pool_manager) {
+  auto half = (GetSize() + 1) / 2;
+  recipient->CopyHalfFrom(array + GetSize() - half, half);
+ 
+  IncreaseSize(-1 * half);
+}
 
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_LEAF_PAGE_TYPE::CopyHalfFrom(MappingType *items, int size) {}
+void B_PLUS_TREE_LEAF_PAGE_TYPE::CopyHalfFrom(MappingType *items, int size) {
+  assert(IsLeafPage() && GetSize() == 0);
+  for (int index = 0; index < size; ++index) {
+    array[index] = *items++;
+  }
+  IncreaseSize(size);
+}
 
 /*****************************************************************************
  * LOOKUP
