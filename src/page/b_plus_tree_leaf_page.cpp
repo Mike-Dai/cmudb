@@ -68,6 +68,12 @@ KeyType B_PLUS_TREE_LEAF_PAGE_TYPE::KeyAt(int index) const {
   return array[index].first;
 }
 
+INDEX_TEMPLATE_ARGUMENTS
+ValueType B_PLUS_TREE_LEAF_PAGE_TYPE::ValueAt(int index) const {
+  assert(0 <= index && index < GetSize());
+  return array[index].second;
+}
+
 /*
  * Helper method to find and return the key & value pair associated with input
  * "index"(a.k.a array offset)
@@ -223,9 +229,20 @@ int B_PLUS_TREE_LEAF_PAGE_TYPE::RemoveAndDeleteRecord(
  */
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveAllTo(BPlusTreeLeafPage *recipient,
-                                           int, BufferPoolManager *) {}
+                                           int, BufferPoolManager *) {
+  recipient->CopyAllFrom(array, GetSize());
+  recipient->SetNextPageId(GetNextPageId());
+}
+
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_LEAF_PAGE_TYPE::CopyAllFrom(MappingType *items, int size) {}
+void B_PLUS_TREE_LEAF_PAGE_TYPE::CopyAllFrom(MappingType *items, int size) {
+  assert(GetSize() + size <= GetMaxSize());
+  auto start = GetSize();
+  for (int i = 0; i < size; ++i) {
+    array[start + i] = *items++;
+  }
+  IncreaseSize(size);
+}
 
 /*****************************************************************************
  * REDISTRIBUTE
@@ -237,10 +254,33 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::CopyAllFrom(MappingType *items, int size) {}
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveFirstToEndOf(
     BPlusTreeLeafPage *recipient,
-    BufferPoolManager *buffer_pool_manager) {}
+    BufferPoolManager *buffer_pool_manager) {
+  MappingType pair = GetItem(0);
+  IncreaseSize(-1);
+  memmove(array, array + 1, static_cast<size_t>(GetSize() * sizeof(MappingType)));
+
+  recipient->CopyLastFrom(pair);
+
+  auto *page = buffer_pool_manager->FetchPage(GetParentPageId());
+  if (page == nullptr) {
+      throw Exception(EXCEPTION_TYPE_INDEX, 
+                      "All pages are pinned while CopyFirstToEndOf");
+    }
+  auto parent = 
+    reinterpret_cast<BPlusTreeInternalPage<KeyType ,decltype(GetPageId()),
+                                          KeyComparator> *>(page->GetData());
+  
+  parent->SetKeyAt(parent->ValueIndex(GetPageId()), pair.first);
+
+  buffer_pool_manager->UnpinPage(GetParentPageId(), true);
+}
 
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_LEAF_PAGE_TYPE::CopyLastFrom(const MappingType &item) {}
+void B_PLUS_TREE_LEAF_PAGE_TYPE::CopyLastFrom(const MappingType &item) {
+  assert(GetSize() + 1 <= GetMaxSize());
+  array[GetSize()] = item;
+  IncreaseSize(1);
+}
 /*
  * Remove the last key & value pair from this page to "recipient" page, then
  * update relavent key & value pair in its parent page.
@@ -248,12 +288,18 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::CopyLastFrom(const MappingType &item) {}
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveLastToFrontOf(
     BPlusTreeLeafPage *recipient, int parentIndex,
-    BufferPoolManager *buffer_pool_manager) {}
+    BufferPoolManager *buffer_pool_manager) {
+  MappingType pair = GetItem(GetSize() - 1);
+  IncreaseSize(-1);
+  recipient->CopyFirstFrom(pair, parentIndex, buffer_pool_manager);
+}
 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::CopyFirstFrom(
     const MappingType &item, int parentIndex,
-    BufferPoolManager *buffer_pool_manager) {}
+    BufferPoolManager *buffer_pool_manager) {
+
+}
 
 /*****************************************************************************
  * DEBUG
