@@ -85,8 +85,7 @@ bool BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value,
                             Transaction *transaction) {
   if (IsEmpty()) {
     StartNewTree(key, value);
-    UpdateRootPageId(1);
-    return InsertIntoLeaf(key, value, transaction);
+    return true;
   }
   else {
     return InsertIntoLeaf(key, value, transaction);
@@ -100,7 +99,13 @@ bool BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value,
  */
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::StartNewTree(const KeyType &key, const ValueType &value) {
-
+  auto *page = reinterpret_cast<BPlusTreeLeafPage<KeyType, ValueType, KeyComparator> *>(
+    buffer_pool_manager_->NewPage(root_page_id_));
+  if (page == nullptr) {
+    throw std::bad_alloc();
+  }
+  UpdateRootPageId(true);
+  page->Insert(key, value, comparator_);
 }
 
 /*
@@ -114,7 +119,42 @@ void BPLUSTREE_TYPE::StartNewTree(const KeyType &key, const ValueType &value) {
 INDEX_TEMPLATE_ARGUMENTS
 bool BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value,
                                     Transaction *transaction) {
-  return false;
+  auto node = reinterpret_cast<BPlusTreePage *>(
+              buffer_pool_manager_->FetchPage(root_page_id_));
+  assert(node->IsRootPage());
+
+  while (!node->IsLeafPage()) {
+    auto child_page_id = 
+        reinterpret_cast<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator> *>
+        (node)->Lookup(key, comparator_);
+
+    buffer_pool_manager_->UnpinPage(node->GetPageId(), false);
+
+    node = reinterpret_cast<BPlusTreePage *>(
+            buffer_pool_manager_->FetchPage(child_page_id));
+  }
+
+  auto leaf = reinterpret_cast<BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>>(leaf);
+  if (leaf->GetSize() < leaf->GetMaxSize()) {
+    ValueType v;
+    if (leaf->Lookup(key, v, comparator_)) {
+      return false;
+    }
+    leaf->Insert(key, value, comparator_);
+    buffer_pool_manager_->UnpinPage(leaf->GetPageId(), true);
+  }
+  else {
+    auto *leaf2 = Split<BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>>(leaf);
+
+    if (comparator_(key, leaf2->KeyAt(0)) < 0) {
+      leaf->Insert(key, value, comparator_);
+    }
+    else {
+      leaf2->Insert(key, value, comparator_);
+    }
+    InsertIntoParent(leaf, leaf2->KeyAt(0), leaf2, transaction);
+  }
+  return true;
 }
 
 /*
@@ -125,7 +165,14 @@ bool BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value,
  * of key & value pairs from input page to newly created page
  */
 INDEX_TEMPLATE_ARGUMENTS
-template <typename N> N *BPLUSTREE_TYPE::Split(N *node) { return nullptr; }
+template <typename N> N *BPLUSTREE_TYPE::Split(N *node) { 
+    auto page_id;
+    auto *new_page = buffer_pool_manager_->NewPage(page_id);
+    if (new_page == nullptr) {
+      throw Exception("out of memory");
+    }
+    node->MoveHalfTo(new_page, buffer_pool_manager_);
+ }
 
 /*
  * Insert key & value pair into internal page after split
