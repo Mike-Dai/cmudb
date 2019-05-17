@@ -312,7 +312,33 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
 INDEX_TEMPLATE_ARGUMENTS
 template <typename N>
 bool BPLUSTREE_TYPE::CoalesceOrRedistribute(N *node, Transaction *transaction) {
-  return false;
+  auto parent = reinterpret_cast<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator> *>
+                  (buffer_pool_manager_->FetchPage(node->GetParentPageId()));
+  if (parent == nullptr) {
+    throw std::bad_alloc();
+  }
+
+  int value_index = parent->ValueIndex(node->GetPageId());
+  int sibling_page_id = parent->ValueAt(value_index - 1);
+  auto sibling = reinterpret_cast<N *>
+                  (buffer_pool_manager_->FetchPage(sibling_page_id));
+
+  if (node->GetSize() + sibling->GetSize() > node->GetMaxSize()) {
+    Redistribute(sibling, node, 1);
+    buffer_pool_manager_->UnpinPage(sibling->GetPageId(), true);
+    buffer_pool_manager_->UnpinPage(parent->GetPageId(), true);
+    return false;
+  }
+  
+  if (Coalesce<N>(sibling, node, parent, value_index, transaction)) {
+    buffer_pool_manager_->DeletePage(parent->GetPageId());
+  }
+  else {
+    buffer_pool_manager_->UnpinPage(parent->GetPageId(), true);
+  }
+
+  buffer_pool_manager_->UnpinPage(sibling->GetPageId(), true);
+  return true;
 }
 
 /*
