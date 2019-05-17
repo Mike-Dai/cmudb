@@ -275,30 +275,15 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
   }
 
   auto leaf = reinterpret_cast<BPlusTreeLeafPage<KeyType, ValueType, KeyComparator> *>(node);
+
   leaf->RemoveAndDeleteRecord(key, comparator_);
 
-  if (leaf->GetSize() >= leaf->GetMinSize()) {
-    buffer_pool_manager_->UnpinPage(leaf->GetPageId(), true);
-    return;
-  }
-
-  if (leaf->IsRootPage()) {
-    if (leaf->GetSize() != 0) {
-      buffer_pool_manager_->UnpinPage(root_page_id_, true);
-    }
-    else {
-      buffer_pool_manager_->UnpinPage(root_page_id_, false);
-      buffer_pool_manager_->DeletePage(root_page_id_);
-
-      root_page_id_ = INVALID_PAGE_ID;
-      UpdateRootPageId(false);
-    }
+  if (CoalesceOrRedistribute(leaf, transaction)) {
+    buffer_pool_manager_->UnpinPage(leaf->GetPageId(), false);
+    buffer_pool_manager_->DeletePage(leaf->GetPageId()); 
   }
   else {
-    if (CoalesceOrRedistribute(leaf, transaction)) {  //??????
-      buffer_pool_manager_->UnpinPage(leaf->GetPageId(), false);
-      buffer_pool_manager_->DeletePage(leaf->GetPageId());
-    }
+    buffer_pool_manager_->UnpinPage(leaf->GetPageId(), true);
   }
 }
 
@@ -312,6 +297,14 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
 INDEX_TEMPLATE_ARGUMENTS
 template <typename N>
 bool BPLUSTREE_TYPE::CoalesceOrRedistribute(N *node, Transaction *transaction) {
+  if (node->IsRootPage()) {
+    return AdjustRoot(node);
+  }
+
+  if (node->GetSize() >= node->GetMinSize()) {
+    return false;
+  }
+
   auto parent = reinterpret_cast<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator> *>
                   (buffer_pool_manager_->FetchPage(node->GetParentPageId()));
   if (parent == nullptr) {
@@ -319,26 +312,46 @@ bool BPLUSTREE_TYPE::CoalesceOrRedistribute(N *node, Transaction *transaction) {
   }
 
   int value_index = parent->ValueIndex(node->GetPageId());
-  int sibling_page_id = parent->ValueAt(value_index - 1);
+  int sibling_page_id;
+  if (value_index == 0) {
+    sibling_page_id = parent->ValueAt(value_index + 1);
+  }
+  else {
+    sibling_page_id = parent->ValueAt(value_index - 1);
+  }
+
   auto sibling = reinterpret_cast<N *>
                   (buffer_pool_manager_->FetchPage(sibling_page_id));
 
   if (node->GetSize() + sibling->GetSize() > node->GetMaxSize()) {
-    Redistribute(sibling, node, 1);
+    if (value_index == 0) {
+      Redistribute<N>(sibling, node, 0);
+    }
+    else {
+      Redistribute<N>(sibling, node, 1);
+    }
     buffer_pool_manager_->UnpinPage(sibling->GetPageId(), true);
     buffer_pool_manager_->UnpinPage(parent->GetPageId(), true);
     return false;
   }
   
-  if (Coalesce<N>(sibling, node, parent, value_index, transaction)) {
+  if (Coalesce<N>(node, sibling, parent, value_index, transaction)) {
+    buffer_pool_manager_->UnpinPage(parent->GetPageId(), false);
     buffer_pool_manager_->DeletePage(parent->GetPageId());
   }
   else {
     buffer_pool_manager_->UnpinPage(parent->GetPageId(), true);
   }
 
-  buffer_pool_manager_->UnpinPage(sibling->GetPageId(), true);
-  return true;
+  if (value_index == 0) {           //????????
+    buffer_pool_manager_->UnpinPage(sibling->GetPageId(), false);
+    buffer_pool_manager_->DeletePage(sibling->GetPageId());
+    return false;
+  }
+  else {
+    buffer_pool_manager_->UnpinPage(sibling->GetPageId(), true);
+    return true;
+  }
 }
 
 /*
