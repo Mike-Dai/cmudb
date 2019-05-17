@@ -359,6 +359,17 @@ bool BPLUSTREE_TYPE::Coalesce(
     N *&neighbor_node, N *&node,
     BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator> *&parent,
     int index, Transaction *transaction) {
+  node->MoveAllTo(neighbor_node, index, buffer_pool_manager_);
+  parent->Remove(index);
+
+  if (parent->GetSize() < parent->GetMinSize()) {
+    if (CoalesceOrRedistribute(parent, transaction)) {
+      buffer_pool_manager_->UnpinPage(parent->GetPageId(), false);  
+      buffer_pool_manager_->DeletePage(parent->GetPageId());
+    }
+    return true;
+  }
+  buffer_pool_manager_->UnpinPage(parent->GetPageId(), true);
   return false;
 }
 
@@ -373,7 +384,20 @@ bool BPLUSTREE_TYPE::Coalesce(
  */
 INDEX_TEMPLATE_ARGUMENTS
 template <typename N>
-void BPLUSTREE_TYPE::Redistribute(N *neighbor_node, N *node, int index) {}
+void BPLUSTREE_TYPE::Redistribute(N *neighbor_node, N *node, int index) {
+  if (index == 0) {
+    neighbor_node->MoveFirstToEndOf(node, buffer_pool_manager_);
+  }
+  else {
+    auto parent = reinterpret_cast<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator> *>
+                  (buffer_pool_manager_->FetchPage(node->GetParentPageId()));
+    if (parent == nullptr) {
+      throw std::bad_alloc();
+    }
+    int index = parent->ValueIndex(node->GetPageId());
+    neighbor_node->MoveLastToFrontOf(node, index, buffer_pool_manager_);
+  }
+}
 /*
  * Update root page if necessary
  * NOTE: size of root page can be less than min size and this method is only
