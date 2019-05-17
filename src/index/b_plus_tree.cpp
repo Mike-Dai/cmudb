@@ -410,6 +410,22 @@ void BPLUSTREE_TYPE::Redistribute(N *neighbor_node, N *node, int index) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 bool BPLUSTREE_TYPE::AdjustRoot(BPlusTreePage *old_root_node) {
+  if (old_root_node->IsLeafPage()) { //????????????
+    if (old_root_node->GetSize() == 0) {
+      root_page_id_ = INVALID_PAGE_ID;
+      UpdateRootPageId(false);
+      return true;
+    }
+    return false;
+  }
+
+  if (old_root_node->GetSize() == 1) {
+    auto root = 
+        reinterpret_cast<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator> *>(old_root_node);
+    root_page_id_ = root->ValueAt(0);
+    UpdateRootPageId(false);
+    return true;
+  }
   return false;
 }
 
