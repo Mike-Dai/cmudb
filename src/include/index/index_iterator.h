@@ -15,7 +15,7 @@ template <typename KeyType, typename ValueType, typename KeyComparator>
 class IndexIterator {
 public:
   // you may define your own constructor based on your member variables
-  IndexIterator();
+  IndexIterator(BPlusTreeLeafPage<KeyType, ValueType, KeyComparator> *leaf, int index, BufferPoolManager *buff_pool_manager);
   ~IndexIterator();
 
   bool isEnd();
@@ -31,8 +31,8 @@ public:
 private:
   // add your own private member variables here
 	BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>* leaf_;
-	BufferPoolManager* buff_pool_manager_;
 	int index_;
+	BufferPoolManager* buff_pool_manager_;
 };
 
 } // namespace cmudb

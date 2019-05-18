@@ -13,8 +13,8 @@ namespace cmudb {
  */
 template <typename KeyType, typename ValueType, typename KeyComparator>
 INDEXITERATOR_TYPE::IndexIterator
-(BPlusTreeLeafPage<KeyType, ValueType, KeyComparator> *leaf, BufferPoolManager *buff_pool_manager):
-leaf_(leaf), buff_pool_manager_(buff_pool_manager) {}
+(BPlusTreeLeafPage<KeyType, ValueType, KeyComparator> *leaf, int index, BufferPoolManager *buff_pool_manager):
+leaf_(leaf), index_(index), buff_pool_manager_(buff_pool_manager) {}
 
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
