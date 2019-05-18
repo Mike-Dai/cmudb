@@ -4,6 +4,7 @@
  */
 #pragma once
 #include "page/b_plus_tree_leaf_page.h"
+#include "buffer/buffer_pool_manager.h"
 
 namespace cmudb {
 
