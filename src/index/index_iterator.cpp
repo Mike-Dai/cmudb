@@ -11,22 +11,22 @@ namespace cmudb {
  * NOTE: you can change the destructor/constructor method here
  * set your own input parameters
  */
-INDEX_TEMPLATE_ARGUMENTS
+template <typename KeyType, typename ValueType, typename KeyComparator>
 INDEXITERATOR_TYPE::IndexIterator
-(BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>* leaf, BufferPoolManager* buff_pool_manager):
+(BPlusTreeLeafPage<KeyType, ValueType, KeyComparator> *leaf, BufferPoolManager *buff_pool_manager):
 leaf_(leaf), buff_pool_manager_(buff_pool_manager) {}
 
 
-INDEX_TEMPLATE_ARGUMENTS
+template <typename KeyType, typename ValueType, typename KeyComparator>
 INDEXITERATOR_TYPE::~IndexIterator() = default;
 
-INDEX_TEMPLATE_ARGUMENTS
+template <typename KeyType, typename ValueType, typename KeyComparator>
 bool INDEXITERATOR_TYPE::isEnd() {
 	return (leaf_->GetNextPageId() == INVALID_PAGE_ID)
 	&& (leaf_ != nullptr && index_ == leaf_->GetSize());
 }
 
-INDEX_TEMPLATE_ARGUMENTS
+template <typename KeyType, typename ValueType, typename KeyComparator>
 const MappingType & INDEXITERATOR_TYPE::operator*() {
 	if (isEnd()) {
 		throw std::out_of_range("index out of range");
@@ -34,7 +34,7 @@ const MappingType & INDEXITERATOR_TYPE::operator*() {
 	return leaf_->GetItem(index_);
 }
 
-INDEX_TEMPLATE_ARGUMENTS
+template <typename KeyType, typename ValueType, typename KeyComparator>
 IndexIterator & INDEXITERATOR_TYPE::operator++() {
 	index_++;
 	if (index_ == leaf_->GetSize()) {
@@ -49,6 +49,28 @@ IndexIterator & INDEXITERATOR_TYPE::operator++() {
 	index_ = 0;  //???????
 	leaf_ = next_leaf;
 	return *this;
+}
+
+template <typename KeyType, typename ValueType, typename KeyComparator>
+bool INDEXITERATOR_TYPE::operator==(IndexIterator* it) {
+	while (!isEnd() && !it->isEnd()) {
+		if (*this != *it) {
+			return false;
+		}
+		++this;
+		++it;
+	}
+	if (!isEnd() || !it->isEnd()) {
+		return false;
+	}
+	else {
+		return true;
+	}
+}
+
+template <typename KeyType, typename ValueType, typename KeyComparator>
+bool INDEXITERATOR_TYPE::operator!=(IndexIterator* it) {
+	return !(this == it);
 }
 
 template class IndexIterator<GenericKey<4>, RID, GenericComparator<4>>;

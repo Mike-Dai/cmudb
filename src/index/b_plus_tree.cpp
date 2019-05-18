@@ -442,7 +442,7 @@ INDEXITERATOR_TYPE BPLUSTREE_TYPE::Begin() {
 INDEX_TEMPLATE_ARGUMENTS
 INDEXITERATOR_TYPE BPLUSTREE_TYPE::Begin(const KeyType &key) {
   return IndexIterator<KeyType, ValueType, KeyComparator>
-          (FindLeafPage(key, true), buffer_pool_manager_);
+          (FindLeafPage(key, true), buffer_pool_manager_);  //why true???????
 }
 
 /*****************************************************************************

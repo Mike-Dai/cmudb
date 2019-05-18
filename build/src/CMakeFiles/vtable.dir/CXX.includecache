@@ -237,6 +237,8 @@ type/value.h
 ../src/include/index/index_iterator.h
 page/b_plus_tree_leaf_page.h
 ../src/include/index/page/b_plus_tree_leaf_page.h
+buffer/buffer_pool_manager.h
+../src/include/index/buffer/buffer_pool_manager.h
 
 ../src/include/logging/log_manager.h
 algorithm
