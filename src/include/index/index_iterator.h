@@ -23,8 +23,15 @@ public:
 
   IndexIterator &operator++();
 
+  bool operator==();
+
+  bool operator!=();
+
 private:
   // add your own private member variables here
+	BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>* leaf_;
+	BufferPoolManager* buff_pool_manager_;
+	int index_;
 };
 
 } // namespace cmudb
