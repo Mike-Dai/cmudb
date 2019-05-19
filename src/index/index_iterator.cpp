@@ -22,8 +22,8 @@ INDEXITERATOR_TYPE::~IndexIterator() = default;
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool INDEXITERATOR_TYPE::isEnd() {
-	return (leaf_->GetNextPageId() == INVALID_PAGE_ID)
-	&& (leaf_ != nullptr && index_ == leaf_->GetSize());
+	return leaf_ == nullptr || leaf_->GetNextPageId() == INVALID_PAGE_ID
+	 && index_ == leaf_->GetSize();
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
@@ -37,18 +37,19 @@ const MappingType & INDEXITERATOR_TYPE::operator*() {
 template <typename KeyType, typename ValueType, typename KeyComparator>
 IndexIterator & INDEXITERATOR_TYPE::operator++() {
 	index_++;
-	if (index_ == leaf_->GetSize()) {
-		auto next_leaf_id = leaf_->GetNextPageId();
-		auto next_leaf = reinterpret_cast<BPlusTreeLeafPage<KeyType, ValueType, KeyComparator> *>
-			(buff_pool_manager_->FetchPage(next_leaf_id));
+	if (index_ == leaf_->GetSize() && leaf_->GetNextPageId() != INVALID_PAGE_ID) {
+		auto *page = buff_pool_manager_->FetchPage(leaf_->GetNextPageId());
+    	if (page == nullptr) {
+      		throw Exception(EXCEPTION_TYPE_INDEX,
+                      "all page are pinned while IndexIterator(operator++)");
+    	}
+    	auto next_leaf =
+        	reinterpret_cast<BPlusTreeLeafPage<KeyType, ValueType,
+                                           KeyComparator> *>(page->GetData());
+		index_ = 0;  //???????
+		leaf_ = next_leaf;
 	}
-
-	if (next_leaf == nullptr) {
-		throw std::bad_alloc();
-	}
-	index_ = 0;  //???????
-	leaf_ = next_leaf;
-	return *this;
+	
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
