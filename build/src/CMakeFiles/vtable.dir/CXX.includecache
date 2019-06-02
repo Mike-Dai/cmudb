@@ -505,6 +505,8 @@ common/config.h
 /home/michael/cmudb/src/common/common/config.h
 
 /home/michael/cmudb/src/concurrency/lock_manager.cpp
+cassert
+-
 concurrency/lock_manager.h
 /home/michael/cmudb/src/concurrency/concurrency/lock_manager.h
 
