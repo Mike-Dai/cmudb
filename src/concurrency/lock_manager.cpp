@@ -149,7 +149,39 @@ bool LockManager::LockUpgrade(Transaction *txn, const RID &rid) {
 }
 
 bool LockManager::Unlock(Transaction *txn, const RID &rid) {
-  return false;
+	std::unique_lock<std::mutex> latch(mutex_);
+
+	if (strict_2PL_) {
+		if (txn->GetState() != TransactionState::COMMITTED &&
+			txn->GetState() != TransactionState::ABORTED) {
+			txn->SetState(TransactionState::ABORTED);
+		}
+	}	
+	else {
+		if (txn->GetState() == TransactionState::GROWING) {
+			txn->SetState(TransactionState::SHRINKING);
+		}
+	}
+
+	assert(lock_table_.count(rid));
+	for (auto it = lock_table_[rid].list.begin();
+		it != lock_table_[rid].list.end(); ++it) {
+		if (it->txn_id == txn->GetTransactionId()) {
+			bool first = it == lock_table_[rid].list.begin();
+			bool exclusive = it->mode == LockMode::EXCLUSIVE;
+
+			if (exclusive) {
+				--lock_table_[rid].exclusive_count;
+			}
+			lock_table_[rid].list.erase(it);
+
+			if (first || exclusive) {
+				cond.notify_all();
+			}
+			break;
+		}
+	}
+	return true;
 }
 
 } // namespace cmudb
