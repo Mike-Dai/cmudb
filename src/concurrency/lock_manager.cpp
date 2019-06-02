@@ -56,11 +56,44 @@ bool LockManager::LockShared(Transaction *txn, const RID &rid) {
 
 	//notify other threads
 	cond.notify_all();
-  return true;
+    return true;
 }
 
 bool LockManager::LockExclusive(Transaction *txn, const RID &rid) {
-  return false;
+    std::unique_lock<std::mutex> latch(mutex_);
+	if (txn->GetState() == TransactionState::ABORTED) {
+		return false;
+	}
+	assert(txn->GetState() == TransactionState::GROWING);
+	
+	Request req{txn->GetTransactionId(), LockMode::EXCLUSIVE, false};
+	if (lock_table_.count(rid) == 0) {
+		lock_table_[rid].oldest = txn->GetTransactionId();
+		lock_table_[rid].list.push_back(req);
+	}
+	else {
+		//die
+		if (txn->GetTransactionId() > lock_table_[rid].oldest) {
+			txn->SetState(TransactionState::ABORTED);
+			return false;
+		}
+		//wait
+		lock_table_[rid].oldest = txn->GetTransactionId();
+		lock_table_[rid].list.push_back(req);
+	}
+
+	++lock_table_[rid].exclusive_count;
+
+	cond.wait(latch, [&]() -> bool{
+		return lock_table_[rid].list.front().txn_id == txn->GetTransactionId();
+	});
+
+	assert(lock_table_[rid].list.front().txn_id == txn->GetTransactionId());
+
+	//granted exclusive lock
+	lock_table_[rid].list.front().granted = true;
+	txn->GetExclusiveLockSet()->insert(rid);
+    return true;
 }
 
 bool LockManager::LockUpgrade(Transaction *txn, const RID &rid) {
