@@ -97,7 +97,55 @@ bool LockManager::LockExclusive(Transaction *txn, const RID &rid) {
 }
 
 bool LockManager::LockUpgrade(Transaction *txn, const RID &rid) {
-  return false;
+    std::unique_lock<std::mutex> latch(mutex_);
+	if (txn->GetState() == TransactionState::ABORTED) {
+		return false;
+	}
+	assert(txn->GetState() == TransactionState::GROWING);
+	
+	auto src = lock_table_[rid].list.end(), tgt = src;
+	for (auto it = lock_table_[rid].list.begin(); 
+		it != lock_table_[rid].list.end(); ++it) {
+		if (it->txn_id == txn->GetTransactionId()) {
+			src = it;
+		}
+		if (src != lock_table_[rid].list.end()) {
+			if (it->mode == LockMode::EXCLUSIVE) {
+				tgt = it;
+				break;
+			}
+		}
+	}
+	assert(src != lock_table_[rid].list.end());
+
+	//wait-die
+	for (auto it = lock_table_[rid].list.begin(); it != tgt; ++it) {
+		if (it->txn_id < src->txn_id) {
+			return false;
+		}
+	}
+
+	Request req = *src;
+	req.granted = false;
+	req.mode = LockMode::EXCLUSIVE;
+
+	lock_table_[rid].list.insert(tgt, req);
+	lock_table_[rid].list.erase(src);
+
+	//maybe blocked
+	cond.wait(latch, [&]() -> bool{
+		return lock_table_[rid].list.front().txn_id == txn->GetTransactionId();
+	});
+
+	//upgrade to exclusive lock
+	assert(lock_table_[rid].list.front().txn_id == txn->GetTransactionId() &&
+		lock_table_[rid].list.front().mode == LockMode::EXCLUSIVE);
+
+	lock_table_[rid].list.front().granted = true;
+
+	txn->GetSharedLockSet()->erase(rid);
+	txn->GetExclusiveLockSet()->insert(rid);
+	return true;
 }
 
 bool LockManager::Unlock(Transaction *txn, const RID &rid) {
