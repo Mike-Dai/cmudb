@@ -22,12 +22,16 @@ BPlusTree(const std::string &name,
     : index_name_(name), root_page_id_(root_page_id),
       buffer_pool_manager_(buffer_pool_manager), comparator_(comparator) {}
 
+template <typename KeyType, typename ValueType, typename KeyComparator>
+thread_local bool BPlusTree<KeyType, ValueType, KeyComparator>::root_is_locked = false;
 /*
  * Helper function to decide whether current b+tree is empty
  */
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool BPlusTree<KeyType, ValueType, KeyComparator>::
-IsEmpty() const { return root_page_id_ == INVALID_PAGE_ID; }
+IsEmpty() const { 
+  return root_page_id_ == INVALID_PAGE_ID;
+}
 
 /*****************************************************************************
  * SEARCH
@@ -42,9 +46,10 @@ bool BPlusTree<KeyType, ValueType, KeyComparator>::
 GetValue(const KeyType &key, std::vector<ValueType> &result,
          Transaction *transaction) {
   // for debug
-  __attribute__((unused)) auto checker = Checker{buffer_pool_manager_};
+  //__attribute__((unused)) auto checker = Checker{buffer_pool_manager_};
+  
 
-  auto *leaf = FindLeafPage(key, false);
+  auto *leaf = FindLeafPage(key, false, Operation::READONLY, transaction);
   bool ret = false;
   if (leaf != nullptr) {
     ValueType value;
@@ -52,7 +57,17 @@ GetValue(const KeyType &key, std::vector<ValueType> &result,
       result.push_back(value);
       ret = true;
     }
-    buffer_pool_manager_->UnpinPage(leaf->GetPageId(), false);
+    UnlockUnpinPages(Operation::READONLY, transaction);
+
+    //in case of `transaction` is nullptr
+    if (transaction == nullptr) {
+      auto page_id = leaf->GetPageId();
+      //unlock and unpin
+      buffer_pool_manager_->FetchPage(page_id)->RUnlatch();
+      buffer_pool_manager_->UnpinPage(page_id, false);
+      //unpin again
+      buffer_pool_manager_->UnpinPage(page_id, false);
+    }
   }
   return ret;
 }
@@ -69,10 +84,14 @@ GetValue(const KeyType &key, std::vector<ValueType> &result,
  */
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool BPlusTree<KeyType, ValueType, KeyComparator>::
-Insert(const KeyType &key, const ValueType &value, Transaction *transaction) {
+Insert(const KeyType &key, const ValueType &value, Transaction *transaction) 
+{
   // for debug
-  __attribute__((unused)) auto checker = Checker{buffer_pool_manager_};
+  //__attribute__((unused)) auto checker = Checker{buffer_pool_manager_};
 
+
+
+  std::lock_guard<std::mutex> lock(mutex_);
   if (IsEmpty()) {
     StartNewTree(key, value);
     return true;
@@ -117,21 +136,27 @@ template <typename KeyType, typename ValueType, typename KeyComparator>
 bool BPlusTree<KeyType, ValueType, KeyComparator>::
 InsertIntoLeaf(const KeyType &key, const ValueType &value, Transaction *transaction) {
   // find the leaf node
-  auto *leaf = FindLeafPage(key, false);
+  auto *leaf = FindLeafPage(key, false, Operation::INSERT, transaction);
   if (leaf == nullptr) {
     return false;
   }
 
+
+
   // if already in the tree, return false
   ValueType v;
   if (leaf->Lookup(key, v, comparator_)) {
-    buffer_pool_manager_->UnpinPage(leaf->GetPageId(), true);
+    
+    UnlockUnpinPages(Operation::INSERT, transaction);
     return false;
   }
 
+
+
+
   if (leaf->GetSize() < leaf->GetMaxSize()) {
     leaf->Insert(key, value, comparator_);
-    buffer_pool_manager_->UnpinPage(leaf->GetPageId(), true);
+    
   } else {
     // when leaf node can hold even number of key-value pairs
     // the following method is ok, but if the leaf node can hold
@@ -156,6 +181,7 @@ InsertIntoLeaf(const KeyType &key, const ValueType &value, Transaction *transact
     // insert the split key into parent
     InsertIntoParent(leaf, leaf2->KeyAt(0), leaf2, transaction);
   }
+  UnlockUnpinPages(Operation::INSERT, transaction);
   return true;
 }
 
@@ -214,7 +240,6 @@ InsertIntoParent(BPlusTreePage *old_node, const KeyType &key,
     // update to new 'root_page_id'
     UpdateRootPageId(false);
 
-    buffer_pool_manager_->UnpinPage(old_node->GetPageId(), true);
     buffer_pool_manager_->UnpinPage(new_node->GetPageId(), true);
 
     // parent is done
@@ -226,7 +251,6 @@ InsertIntoParent(BPlusTreePage *old_node, const KeyType &key,
       throw Exception(EXCEPTION_TYPE_INDEX,
                       "all page are pinned while InsertIntoParent");
     }
-    assert(page->GetPinCount() == 1);
     auto internal =
         reinterpret_cast<BPlusTreeInternalPage<KeyType, page_id_t,
                                                KeyComparator> *>(page->GetData());
@@ -237,12 +261,7 @@ InsertIntoParent(BPlusTreePage *old_node, const KeyType &key,
       new_node->SetParentPageId(internal->GetPageId());
 
       // new_node is split from old_node, must be dirty
-      buffer_pool_manager_->UnpinPage(old_node->GetPageId(), true);
       buffer_pool_manager_->UnpinPage(new_node->GetPageId(), true);
-
-      // internal is also done
-      buffer_pool_manager_->UnpinPage(internal->GetPageId(), true);
-
     } else {
       // internal have no space and have to split
       // first make a copy of internal node, simplify split process
@@ -274,7 +293,7 @@ InsertIntoParent(BPlusTreePage *old_node, const KeyType &key,
         }
       }
 
-      // `internal2` will move GetSize()+1)/2 pairs from `copy`
+      // `internal2` will move (GetSize()+1)/2 pairs from `copy`
       assert(copy->GetSize() == copy->GetMaxSize());
       auto internal2 =
           Split<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>>(copy);
@@ -297,8 +316,6 @@ InsertIntoParent(BPlusTreePage *old_node, const KeyType &key,
         old_node->SetParentPageId(internal2->GetPageId());
       }
 
-      // old_node and new_node is done, unpin them
-      buffer_pool_manager_->UnpinPage(old_node->GetPageId(), true);
       buffer_pool_manager_->UnpinPage(new_node->GetPageId(), true);
 
       // delete copy
@@ -308,6 +325,7 @@ InsertIntoParent(BPlusTreePage *old_node, const KeyType &key,
       // recursive call until root if necessary
       InsertIntoParent(internal, internal2->KeyAt(0), internal2);
     }
+    buffer_pool_manager_->UnpinPage(internal->GetPageId(), true);
   }
 }
 
@@ -325,7 +343,7 @@ template <typename KeyType, typename ValueType, typename KeyComparator>
 void BPlusTree<KeyType, ValueType, KeyComparator>::
 Remove(const KeyType &key, Transaction *transaction) {
   // for debug
-  __attribute__((unused)) auto checker = Checker{buffer_pool_manager_};
+  //__attribute__((unused)) auto checker = Checker{buffer_pool_manager_};
 
   if (IsEmpty()) {
     return;

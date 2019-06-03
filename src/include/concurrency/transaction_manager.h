@@ -14,10 +14,12 @@
 namespace cmudb {
 class TransactionManager {
 public:
-  TransactionManager(LockManager *lock_manager,
+  explicit TransactionManager(LockManager *lock_manager,
                            LogManager *log_manager = nullptr)
       : next_txn_id_(0), lock_manager_(lock_manager),
         log_manager_(log_manager) {}
+  TransactionManager(TransactionManager const&) = delete;
+  TransactionManager &operator=(TransactionManager const&) = delete;
   Transaction *Begin();
   void Commit(Transaction *txn);
   void Abort(Transaction *txn);
